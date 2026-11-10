@@ -1,0 +1,429 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Interval Trainer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Host+Grotesk:wght@400..800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --dp-color-ground:#f5f4ee; --dp-color-ink:#000; --dp-color-accent:#ff0000;
+    --dp-color-field:#0000ff; --dp-color-field-support:#ffff00; --dp-color-quiet:#e8e8e8; --dp-color-on-field:#fff;
+    --dp-typography-face:"Bauhaus Host", "Host Grotesk", system-ui, sans-serif;
+    --dp-typography-body:18px; --dp-typography-reading:17px; --dp-typography-label:15px; --dp-typography-caption:14px;
+    --dp-typography-weight-display:800; --dp-typography-weight-action:750; --dp-typography-weight-label:650; --dp-typography-weight-reading:450;
+    --dp-typography-reading-leading:1.5;
+    --dp-spacing-gutter:clamp(22px, 4.45vw, 72px);
+    --dp-border-rule:4px; --dp-border-rule-compact:3px;
+    --seam:var(--dp-border-rule) solid var(--dp-color-ink);
+    --rule:var(--dp-border-rule-compact) solid var(--dp-color-ink);
+    color-scheme:light;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--dp-color-ground); color:var(--dp-color-ink);
+         font-family:var(--dp-typography-face); font-size:var(--dp-typography-reading);
+         font-weight:var(--dp-typography-weight-reading); line-height:var(--dp-typography-reading-leading); }
+  main { max-width:1100px; margin:var(--dp-spacing-gutter) auto; border:var(--seam); background:var(--dp-color-ground); }
+  @media (max-width:720px) { main { margin:0; border-left:0; border-right:0; } }
+
+  /* --- top bar --- */
+  .bar { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:14px 20px; border-bottom:var(--seam); }
+  h1 { font-weight:var(--dp-typography-weight-display); font-size:clamp(26px, 3.4vw, 36px); line-height:1; letter-spacing:-0.04em; margin:0; }
+  .bar nav { display:flex; gap:12px; }
+
+  /* --- play area: red action plane + answers --- */
+  .play { display:grid; grid-template-columns:270px 1fr; }
+  .plane-action { background:var(--dp-color-accent); padding:24px 16px; border-right:var(--seam);
+                  /* 1fr | play | 1fr keeps the circle dead centre; score/keys sit in the bottom track */
+                  display:grid; grid-template-rows:1fr auto 1fr; justify-items:center; }
+  #play { grid-row:2; }
+  .under { grid-row:3; align-self:start; width:100%; display:flex; flex-direction:column; align-items:center; gap:10px; padding-top:20px; }
+  .answers-col { align-self:start; display:flex; flex-direction:column; }
+  .strip { background:var(--dp-color-field-support); border-bottom:var(--seam); padding:10px 16px; }
+  /* fixed height so the cards below never move when the result appears */
+  #feedback { height:2em; display:flex; align-items:center; gap:8px; font-size:var(--dp-typography-body); font-weight:var(--dp-typography-weight-label); }
+  .ok, .bad { line-height:1.2; }
+
+  /* --- controls --- */
+  button { font:inherit; font-size:var(--dp-typography-label); font-weight:var(--dp-typography-weight-action);
+           border:var(--rule); border-radius:0; background:var(--dp-color-ground); color:var(--dp-color-ink);
+           padding:9px 14px; cursor:pointer; box-shadow:4px 4px 0 var(--dp-color-ink); transition:none; }
+  button:hover { background:var(--dp-color-field-support); }
+  button:active { transform:translate(4px,4px); box-shadow:0 0 0 var(--dp-color-ink); }
+  button:focus-visible { outline:4px solid var(--dp-color-field); outline-offset:4px; }
+  .plane-action button:focus-visible { outline-color:var(--dp-color-ink); outline-style:dashed; }
+  button:disabled { cursor:default; background:var(--dp-color-quiet); color:#555; box-shadow:4px 4px 0 #555; border-color:#555; transform:none; }
+
+  #play { width:150px; aspect-ratio:1; border-radius:50%; border:var(--seam); background:var(--dp-color-on-field);
+          box-shadow:8px 8px 0 var(--dp-color-ink); font-size:19px; font-weight:var(--dp-typography-weight-display);
+          text-transform:uppercase; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; }
+  #play::before { content:""; width:0; height:0; border-style:solid; border-width:15px 0 15px 25px;
+                  border-color:transparent transparent transparent var(--dp-color-ink); margin-left:6px; }
+  #play:hover { background:var(--dp-color-field-support); }
+  #play:active, #play.pressed { transform:translate(8px,8px); box-shadow:0 0 0 var(--dp-color-ink); }
+  #score { font-size:var(--dp-typography-body); font-weight:var(--dp-typography-weight-action); min-height:1.5em; }
+  .keys { font-size:var(--dp-typography-caption); font-weight:var(--dp-typography-weight-label); text-align:center; }
+
+  .ok, .bad { display:inline-block; padding:0 6px; border:var(--rule); font-weight:var(--dp-typography-weight-action); }
+  .ok { background:var(--dp-color-on-field); }
+  .ok::before { content:"✓ "; }
+  .bad { background:var(--dp-color-ink); color:var(--dp-color-on-field); }
+  .bad::before { content:"✗ "; }
+
+  #answers { display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); align-content:start;
+             background:var(--dp-color-ink); gap:var(--dp-border-rule-compact); }
+  #answers { grid-auto-rows:1fr; } /* every row as tall as the tallest card */
+  #answers button { display:flex; flex-direction:column; justify-content:flex-start; align-items:flex-start; gap:2px;
+                    text-align:left; border:0; box-shadow:none; padding:12px 14px; min-height:84px; min-width:0;
+                    font-size:var(--dp-typography-reading); background:var(--dp-color-ground); position:relative; }
+  #answers button:hover { background:var(--dp-color-field-support); }
+  #answers button:active { transform:none; background:var(--dp-color-quiet); }
+  #answers button:focus-visible { outline-offset:-6px; }
+  #answers .name { font-weight:var(--dp-typography-weight-action); }
+  #answers button:disabled { background:var(--dp-color-quiet); color:#555; box-shadow:none; }
+  #answers button:disabled .song { visibility:hidden; }
+  #answers button small { display:block; font-size:var(--dp-typography-caption); font-weight:var(--dp-typography-weight-reading); }
+  #answers button.correct { background:var(--dp-color-field); color:var(--dp-color-on-field); }
+  #answers button.wrong { background:var(--dp-color-ink); color:var(--dp-color-on-field); }
+  #answers button.correct::after, #answers button.wrong::after { position:absolute; top:8px; right:10px;
+                    font-size:var(--dp-typography-caption); font-weight:var(--dp-typography-weight-action); }
+  #answers button.correct::after { content:"✓"; }
+  #answers button.wrong::after { content:"✗"; }
+
+  /* --- modals --- */
+  dialog { border:var(--seam); border-radius:0; padding:0; background:var(--dp-color-ground); color:var(--dp-color-ink);
+           box-shadow:12px 12px 0 var(--dp-color-ink); width:min(720px, calc(100vw - 32px)); max-height:calc(100vh - 48px); }
+  dialog::backdrop { background:rgba(0,0,0,.55); }
+  .dlg-head { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:12px 18px;
+              border-bottom:var(--seam); background:var(--dp-color-field-support); position:sticky; top:0; z-index:1; }
+  .dlg-head h2 { font-size:28px; font-weight:var(--dp-typography-weight-display); letter-spacing:-0.03em; line-height:1; margin:0; }
+  .dlg-head div { display:flex; gap:12px; }
+  .dlg-body { padding:8px 18px 18px; }
+  .close { width:40px; height:40px; padding:0; font-size:22px; line-height:1; }
+  .dlg-head button { height:40px; padding-top:0; padding-bottom:0; display:inline-flex; align-items:center; justify-content:center; }
+
+  .setting { display:grid; grid-template-columns:110px 1fr; gap:6px 16px; padding:12px 0; border-bottom:var(--rule); }
+  .setting > .label, summary { font-size:var(--dp-typography-label); font-weight:var(--dp-typography-weight-label);
+                               text-transform:uppercase; letter-spacing:.04em; }
+  .opts { display:flex; flex-wrap:wrap; gap:8px 18px; }
+  label { display:inline-flex; gap:8px; align-items:center; cursor:pointer; }
+  input[type=radio], input[type=checkbox] { accent-color:var(--dp-color-field); width:20px; height:20px; margin:0; }
+  .note { font-size:var(--dp-typography-caption); }
+  #picker { display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:6px 14px; }
+
+  table { width:100%; border-collapse:collapse; border:var(--seam); font-size:var(--dp-typography-label); margin-top:10px; }
+  th, td { text-align:left; padding:8px 10px; border-bottom:var(--rule); }
+  th { background:var(--dp-color-ink); color:var(--dp-color-on-field); font-weight:var(--dp-typography-weight-label);
+       text-transform:uppercase; letter-spacing:.04em; font-size:var(--dp-typography-caption); }
+  td:first-child { font-weight:var(--dp-typography-weight-label); }
+  .muted { color:#333; }
+  .bar-fill { height:12px; background:var(--dp-color-accent); border:2px solid var(--dp-color-ink); margin-top:4px; }
+  .bar-fill[style*="width:0%"] { display:none; }
+
+  @media (max-width:720px) {
+    .play { grid-template-columns:1fr; }
+    .plane-action { border-right:0; border-bottom:var(--seam); display:flex; align-items:center; justify-content:center; gap:20px; padding:18px 16px; }
+    .under { padding-top:0; align-items:flex-start; }
+    #play { width:120px; }
+    #answers { grid-template-columns:1fr 1fr; }
+    .setting { grid-template-columns:1fr; }
+  }
+  @media (prefers-reduced-motion:reduce) { * { transition:none !important; } }
+</style>
+</head>
+<body>
+<main>
+  <header class="bar">
+    <h1>Interval Trainer</h1>
+    <nav>
+      <button id="openSettings" aria-haspopup="dialog">Settings</button>
+      <button id="openStats" aria-haspopup="dialog">Stats</button>
+    </nav>
+  </header>
+
+  <section class="play">
+    <div class="plane-action">
+      <button id="play">Start</button>
+      <div class="under">
+        <span id="score"></span>
+        <span class="keys">Space = play / replay</span>
+      </div>
+    </div>
+    <div class="answers-col">
+      <div class="strip"><div id="feedback" class="muted" aria-live="polite">Press Space to start</div></div>
+      <div id="answers"></div>
+    </div>
+  </section>
+</main>
+
+<dialog id="settingsDlg" aria-labelledby="settingsTitle">
+  <div class="dlg-head">
+    <h2 id="settingsTitle">Settings</h2>
+    <button class="close" data-close aria-label="Close settings">×</button>
+  </div>
+  <div class="dlg-body">
+    <div class="setting">
+      <span class="label">Range</span>
+      <div class="opts">
+        <label><input type="radio" name="range" value="string" checked> Low E string (frets 0–12)</label>
+        <label><input type="radio" name="range" value="two"> Two octaves (E2–E4)</label>
+        <label><input type="radio" name="range" value="neck"> Whole neck (E2–D6)</label>
+      </div>
+    </div>
+    <div class="setting">
+      <span class="label">Direction</span>
+      <div class="opts">
+        <label><input type="radio" name="dir" value="up" checked> Ascending</label>
+        <label><input type="radio" name="dir" value="down"> Descending</label>
+        <label><input type="radio" name="dir" value="mix"> Both</label>
+      </div>
+    </div>
+    <div class="setting">
+      <span class="label">Options</span>
+      <div class="opts">
+        <label><input type="checkbox" id="hints" checked onchange="renderAnswers()"> Song hints on buttons</label>
+        <label><input type="checkbox" id="focus"> Focus mode <span class="note">(favour the ones you miss)</span></label>
+      </div>
+    </div>
+    <div class="setting">
+      <span class="label">Intervals</span>
+      <div id="picker"></div>
+    </div>
+  </div>
+</dialog>
+
+<dialog id="statsDlg" aria-labelledby="statsTitle">
+  <div class="dlg-head">
+    <h2 id="statsTitle">Your stats</h2>
+    <div>
+      <button id="reset">Reset</button>
+      <button class="close" data-close aria-label="Close stats">×</button>
+    </div>
+  </div>
+  <div class="dlg-body">
+    <table id="stats"></table>
+  </div>
+</dialog>
+
+<script>
+const INTERVALS = [
+  { st:0,  name:"Unison",      short:"P1", song:"(Same note)" },
+  { st:1,  name:"Minor 2nd",   short:"m2", song:"Jaws — “dun-DUN”" },
+  { st:2,  name:"Major 2nd",   short:"M2", song:"Happy Birthday — “Hap-py”" },
+  { st:3,  name:"Minor 3rd",   short:"m3", song:"Seven Nation Army — “da… DA”" },
+  { st:4,  name:"Major 3rd",   short:"M3", song:"When the Saints — “Oh when”" },
+  { st:5,  name:"Perfect 4th", short:"P4", song:"Here Comes the Bride" },
+  { st:6,  name:"Tritone",     short:"TT", song:"The Simpsons — “The Simp-”" },
+  { st:7,  name:"Perfect 5th", short:"P5", song:"Star Wars — “da-DAAA”" },
+  { st:8,  name:"Minor 6th",   short:"m6", song:"The Entertainer" },
+  { st:9,  name:"Major 6th",   short:"M6", song:"Jingle Bells — “Dash-ing”" },
+  { st:10, name:"Minor 7th",   short:"m7", song:"Star Trek (original theme)" },
+  { st:11, name:"Major 7th",   short:"M7", song:"Take On Me — “Take … on”" },
+  { st:12, name:"Octave",      short:"P8", song:"Somewhere Over the Rainbow — “Some-where”" },
+];
+const NOTE_NAMES = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+const LOW_E = 40, HIGHEST = 86; // E2 .. D6 (high e, 22nd fret)
+const noteName = m => NOTE_NAMES[m % 12] + (Math.floor(m / 12) - 1);
+
+// ---- storage (wrapped: private windows can throw) ----
+const KEY = "interval-trainer-v1";
+function load() { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch { return {}; } }
+function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch {} }
+const state = Object.assign({ stats:{}, confusions:{}, enabled: INTERVALS.map(i => i.st) }, load());
+INTERVALS.forEach(i => state.stats[i.st] ??= { seen:0, wrong:0 });
+
+// ---- audio: triangle wave + decay, played one octave above guitar pitch ----
+let ctx;
+function play(midi, when) {
+  const osc = ctx.createOscillator(), g = ctx.createGain();
+  osc.type = "triangle";
+  osc.frequency.value = 440 * 2 ** ((midi + 12 - 69) / 12);
+  g.gain.setValueAtTime(0.0001, when);
+  g.gain.exponentialRampToValueAtTime(0.3, when + 0.01); // tiny attack avoids click
+  g.gain.exponentialRampToValueAtTime(0.001, when + 1.2);
+  osc.connect(g).connect(ctx.destination);
+  osc.start(when);
+  osc.stop(when + 1.2);
+}
+function playCurrent() {
+  if (!current) return;
+  ctx ??= new AudioContext();
+  const t = ctx.currentTime + 0.05;
+  const [a, b] = current.notes;
+  play(a, t); play(b, t + 0.8);
+}
+
+// ---- question generation ----
+let current = null, answered = false, session = { right:0, total:0 };
+const val = name => document.querySelector(`input[name=${name}]:checked`).value;
+
+function weightFor(st) {
+  if (!document.getElementById("focus").checked) return 1;
+  const s = state.stats[st];
+  const errRate = (s.wrong + 1) / (s.seen + 2); // smoothed so unseen ones still appear
+  return errRate ** 2 * 10 + 0.05;
+}
+function pickInterval() {
+  const pool = state.enabled.map(st => ({ st, w: weightFor(st) }));
+  let r = Math.random() * pool.reduce((a, p) => a + p.w, 0);
+  for (const p of pool) if ((r -= p.w) <= 0) return p.st;
+  return pool[pool.length - 1].st;
+}
+function makeQuestion() {
+  const st = pickInterval();
+  // both notes stay inside the range (guitar pitch; playback is shifted up an octave)
+  const lo = LOW_E, hi = { string: LOW_E + 12, two: LOW_E + 24, neck: HIGHEST }[val("range")] ?? LOW_E + 12;
+  const root = lo + Math.floor(Math.random() * (hi - st - lo + 1));
+  let dir = val("dir");
+  if (dir === "mix") dir = Math.random() < 0.5 ? "up" : "down";
+  const notes = dir === "down" ? [root + st, root] : [root, root + st];
+  return { st, notes, dir };
+}
+function newQuestion() {
+  if (!state.enabled.length) { feedback("Pick at least one interval.", "bad"); return; }
+  const prev = current;
+  const same = q => prev && q.st === prev.st && q.dir === prev.dir && q.notes.join() === prev.notes.join();
+  // re-roll if it's the exact same question as last time; capped because some settings
+  // (e.g. one interval + open E + one direction) only have a single possible question
+  let q, tries = 0;
+  do { q = makeQuestion(); } while (same(q) && ++tries < 50);
+  current = q;
+  answered = false;
+  document.getElementById("play").textContent = "Replay";
+  renderAnswers();
+  feedback("Which interval?", "muted");
+  playCurrent();
+}
+
+function answer(st, btn) {
+  if (!current || answered) return;
+  answered = true;
+  const right = st === current.st, iv = INTERVALS[current.st];
+  const s = state.stats[current.st];
+  s.seen++; session.total++;
+  if (right) session.right++;
+  else {
+    s.wrong++;
+    const k = `${current.st}>${st}`;
+    state.confusions[k] = (state.confusions[k] || 0) + 1;
+  }
+  save();
+  btn.classList.add(right ? "correct" : "wrong");
+  document.querySelector(`#answers button[data-st="${current.st}"]`).classList.add("correct");
+  feedback(`<span class="${right ? "ok" : "bad"}">${right ? "Correct" : "Nope"}</span> ${iv.name}`);
+  renderStats();
+  document.querySelectorAll("#answers button").forEach(b => b.classList.remove("correct", "wrong"));
+  // re-highlight after re-render, then auto-advance (longer pause on a miss so you can read it)
+  document.querySelector(`#answers button[data-st="${current.st}"]`)?.classList.add("correct");
+  if (!right && st >= 0) document.querySelector(`#answers button[data-st="${st}"]`)?.classList.add("wrong");
+  setTimeout(newQuestion, right ? 1500 : 3000);
+}
+function playOrStart() {
+  if (!current) newQuestion();
+  else if (!answered) playCurrent();
+}
+
+// ---- rendering ----
+function feedback(html, cls = "") { const el = document.getElementById("feedback"); el.className = cls; el.innerHTML = html; }
+function renderAnswers() {
+  const el = document.getElementById("answers");
+  el.innerHTML = "";
+  // render every interval so positions never change; switched-off ones stay as disabled placeholders
+  INTERVALS.forEach(i => {
+    const b = document.createElement("button");
+    b.dataset.st = i.st;
+    const on = state.enabled.includes(i.st);
+    const hint = document.getElementById("hints").checked ? `<small class="song">${i.song}</small>` : "";
+    b.innerHTML = `<span class="name">${i.name}</span><small>${i.short} · ${i.st} st${on ? "" : " · off"}</small>${hint}`;
+    if (on) b.onclick = () => answer(i.st, b);
+    else { b.disabled = true; b.setAttribute("aria-label", `${i.name} (switched off in settings)`); }
+    el.appendChild(b);
+  });
+  const sc = document.getElementById("score");
+  sc.textContent = session.total ? `Session: ${session.right}/${session.total}` : "";
+}
+function renderPicker() {
+  const el = document.getElementById("picker");
+  el.innerHTML = INTERVALS.map(i => `<label><input type="checkbox" value="${i.st}" ${state.enabled.includes(i.st) ? "checked" : ""}> ${i.name}</label>`).join("");
+  el.onchange = () => {
+    state.enabled = [...el.querySelectorAll("input:checked")].map(c => +c.value);
+    save(); renderAnswers();
+  };
+}
+function renderStats() {
+  // Worst first. Rank by the Wilson lower bound of the miss rate: it's high only when you
+  // miss often AND have seen it enough times for that to be real (1 miss in 1 try ranks
+  // below 6 misses in 10). Unseen intervals go last.
+  const missScore = ({ seen, wrong }) => {
+    if (!seen) return -1;
+    const z = 1.96, p = wrong / seen, z2 = z * z;
+    return (p + z2 / (2 * seen) - z * Math.sqrt((p * (1 - p) + z2 / (4 * seen)) / seen)) / (1 + z2 / seen);
+  };
+  const sorted = [...INTERVALS].sort((a, b) => missScore(state.stats[b.st]) - missScore(state.stats[a.st]));
+  const rows = sorted.map(i => {
+    const s = state.stats[i.st], pct = s.seen ? Math.round(100 * s.wrong / s.seen) : null;
+    const conf = Object.entries(state.confusions)
+      .filter(([k]) => k.startsWith(i.st + ">"))
+      .sort((a, b) => b[1] - a[1]).slice(0, 2)
+      .map(([k, n]) => { const g = +k.split(">")[1]; return g < 0 ? `gave up ×${n}` : `${INTERVALS[g].short} ×${n}`; })
+      .join(", ");
+    return `<tr><td>${i.name}</td><td>${s.seen}</td><td>${pct === null ? "–" : pct + "%"}<div class="bar-fill" style="width:${pct || 0}%"></div></td><td class="muted">${conf}</td></tr>`;
+  }).join("");
+  document.getElementById("stats").innerHTML = `<tr><th>Interval</th><th>Seen</th><th>Missed</th><th>Mistaken for</th></tr>${rows}`;
+  renderAnswers();
+}
+
+document.getElementById("play").onclick = playOrStart;
+document.getElementById("reset").onclick = () => {
+  if (!confirm("Clear all stats?")) return;
+  state.stats = {}; state.confusions = {};
+  INTERVALS.forEach(i => state.stats[i.st] = { seen:0, wrong:0 });
+  save(); renderStats();
+};
+document.addEventListener("keydown", e => {
+  if (document.querySelector("dialog[open]")) return; // don't play behind a modal
+  if (["INPUT", "SELECT"].includes(e.target.tagName)) return;
+  if (e.code === "Space") {
+    e.preventDefault();
+    if (e.repeat) return;
+    const btn = document.getElementById("play");
+    btn.classList.add("pressed"); // same pushed-in look as a mouse press
+    setTimeout(() => btn.classList.remove("pressed"), 120);
+    playOrStart();
+  }
+});
+
+// ---- remember settings between refreshes ----
+const SETTINGS = ["hints", "focus"];
+function saveSettings() {
+  state.settings = { range: val("range"), dir: val("dir") };
+  SETTINGS.forEach(id => state.settings[id] = document.getElementById(id).checked);
+  save();
+}
+function restoreSettings() {
+  const s = state.settings;
+  if (!s) return;
+  ["range", "dir"].forEach(n => {
+    const el = document.querySelector(`input[name=${n}][value="${s[n]}"]`);
+    if (el) el.checked = true;
+  });
+  SETTINGS.forEach(id => { if (id in s) document.getElementById(id).checked = s[id]; });
+}
+document.querySelectorAll('input[name=range], input[name=dir], #hints, #focus')
+  .forEach(el => el.addEventListener("change", saveSettings));
+
+// ---- modals ----
+const settingsDlg = document.getElementById("settingsDlg"), statsDlg = document.getElementById("statsDlg");
+document.getElementById("openSettings").onclick = () => settingsDlg.showModal();
+document.getElementById("openStats").onclick = () => { renderStats(); statsDlg.showModal(); };
+document.querySelectorAll("[data-close]").forEach(b => b.onclick = () => b.closest("dialog").close());
+// click on the dimmed backdrop closes too
+[settingsDlg, statsDlg].forEach(d => d.addEventListener("click", e => { if (e.target === d) d.close(); }));
+
+restoreSettings();
+renderPicker(); renderStats();
+</script>
+</body>
+</html>
